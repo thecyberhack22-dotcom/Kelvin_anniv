@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>[hidden]{display:none!important}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+<title>Terminal NAJK_SOFT</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=VT323&display=swap">
+<style>
+/* Layout: one full-height terminal window under a slim title bar; a full-screen reveal replaces it once the flag is accepted. */
+:root {
+  --bg: #12100b;
+  --panel: #1a1710;
+  --rule: #2e291b;
+  --fg: #eadfc2;
+  --dim: #8b7d57;
+  --amber: #ffb000;
+  --ok: #86d9a4;
+  --err: #ff7466;
+  --info: #74c7e3;
+  --font: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --display: 'VT323', 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { height: 100%; }
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.55;
+  padding-block: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex;
+  flex-direction: column;
+}
+::selection { background: var(--amber); color: var(--bg); }
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+  background: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0, rgba(0,0,0,0) 2px, rgba(0,0,0,.13) 3px);
+}
+.shell {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 900px;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule);
+}
+.brand {
+  font-family: var(--display);
+  font-size: 1.8rem;
+  line-height: 1;
+  letter-spacing: .05em;
+  color: var(--amber);
+  text-shadow: 0 0 10px rgba(255,176,0,.35);
+}
+.session { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: .8rem; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
+.term {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 14px;
+  cursor: text;
+}
+.term:focus-within { border-color: var(--amber); }
+.ln { white-space: pre-wrap; overflow-wrap: anywhere; min-height: 1.55em; }
+.amber { color: var(--amber); }
+.dim { color: var(--dim); }
+.ok { color: var(--ok); }
+.err { color: var(--err); }
+.info { color: var(--info); }
+mark { background: var(--amber); color: var(--bg); padding: 0 1px; }
+.line { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: .6ch; }
+.prompt { white-space: nowrap; }
+#cmd {
+  flex: 1 1 14ch;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: var(--fg);
+  font: inherit;
+  caret-color: var(--amber);
+}
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.chips-label { color: var(--dim); font-size: .8rem; }
+button {
+  font: inherit;
+  font-size: .85rem;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--dim);
+  border-radius: 3px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+button:hover { border-color: var(--amber); color: var(--amber); }
+button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+button.primary { background: var(--amber); border-color: var(--amber); color: var(--bg); font-weight: 600; }
+button.primary:hover { color: var(--bg); filter: brightness(1.08); }
+
+.reveal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  overflow-y: auto;
+  background: var(--bg);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.reveal canvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+.rv-inner { position: relative; z-index: 1; max-width: 640px; margin-inline: auto; padding-block: 36px; display: flex; flex-direction: column; gap: 16px; }
+.rv-inner > * { margin: 0; animation: rise .6s ease-out both; }
+.rv-inner > :nth-child(2) { animation-delay: .08s; }
+.rv-inner > :nth-child(3) { animation-delay: .18s; }
+.rv-inner > :nth-child(4) { animation-delay: .3s; }
+.rv-inner > :nth-child(5) { animation-delay: .42s; }
+.rv-inner > :nth-child(6) { animation-delay: .54s; }
+.rv-inner > :nth-child(7) { animation-delay: .66s; }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.rv-file { color: var(--dim); font-size: .8rem; }
+.rv-file span { color: var(--ok); }
+.cake { color: var(--amber); font: inherit; line-height: 1.2; text-shadow: 0 0 8px rgba(255,176,0,.35); }
+.rv-inner h1 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(2.8rem, 12vw, 5.2rem);
+  line-height: .95;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  text-wrap: balance;
+  color: var(--amber);
+  text-shadow: 0 0 14px rgba(255,176,0,.4);
+}
+.rv-lead { font-size: 1.1rem; color: var(--fg); }
+.rv-body { color: var(--fg); max-width: 60ch; }
+.rv-sign { color: var(--dim); }
+.rv-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+@media (max-width: 600px) { body { font-size: 16px; } }
+@media (prefers-reduced-motion: reduce) { .rv-inner > * { animation: none; } }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <header class="bar">
+    <span class="brand">NAJK_SOFT</span>
+    <span class="session"><span class="dot" aria-hidden="true"></span><span id="status">connecté</span><span>· kelvin</span></span>
+  </header>
+  <main class="term" id="term" aria-label="Terminal NAJK_SOFT">
+    <div id="out" role="log" aria-live="polite"></div>
+    <form id="line" class="line" autocomplete="off">
+      <label for="cmd" class="prompt" id="prompt"></label>
+      <input id="cmd" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-label="Commande" disabled>
+    </form>
+  </main>
+  <div class="chips">
+    <span class="chips-label">raccourcis</span>
+    <button type="button" class="chip" data-cmd="help">help</button>
+    <button type="button" class="chip" data-cmd="ls">ls</button>
+    <button type="button" class="chip" data-cmd="hint">hint</button>
+  </div>
+</div>
+
+<section id="reveal" class="reveal" role="dialog" aria-modal="true" aria-labelledby="rv-title" hidden>
+  <canvas id="confetti" aria-hidden="true"></canvas>
+  <div class="rv-inner">
+    <p class="rv-file">cadeau/anniv.enc · <span>déchiffré</span></p>
+    <pre class="cake" aria-hidden="true">   i   i   i
+  _|___|___|_
+ |~ ~ ~ ~ ~ ~|
+ |___________|
+ |~ ~ ~ ~ ~ ~|
+ |___________|</pre>
+    <h1 id="rv-title">Joyeux anniversaire, Kelvin</h1>
+    <p class="rv-lead">NAJK_SOFT te souhaite une excellente journée.</p>
+    <p class="rv-body">Merci pour tout ce que tu construis avec nous. Que cette nouvelle année t'apporte des projets ambitieux, des déploiements sans bug et beaucoup de réussite.</p>
+    <p class="rv-sign">— ton partenaire chez NAJK_SOFT</p>
+    <div class="rv-actions">
+      <button type="button" id="again">Encore des confettis</button>
+      <button type="button" id="back" class="primary">Retour au terminal</button>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  'use strict';
+
+  var USER = 'kelvin', HOST = 'najk_soft';
+  var FLAG = 'NAJK{HAPPY_BDAY_KELVIN}';
+  var FLAG_B64 = 'TkFKS3tIQVBQWV9CREFZX0tFTFZJTn0=';
+  var REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  function $(id) { return document.getElementById(id); }
+  var out = $('out'), term = $('term'), form = $('line'), input = $('cmd');
+  var promptEl = $('prompt'), statusEl = $('status'), reveal = $('reveal');
+
+  /* ---------- Système de fichiers virtuel ---------- */
+  function F(content, id) { return { type: 'file', content: content, id: id }; }
+  function D(children) { return { type: 'dir', children: children }; }
+
+  var LOG = [
+    '2026-11-22 00:02:11 INFO  10.0.0.12 GET /index.html 200',
+    '2026-11-22 00:15:43 INFO  10.0.0.12 GET /login 200',
+    '2026-11-22 01:07:02 WARN  10.0.0.57 POST /login 401 (mot de passe incorrect)',
+    '2026-11-22 01:07:09 WARN  10.0.0.57 POST /login 401 (mot de passe incorrect)',
+    '2026-11-22 02:31:50 INFO  10.0.0.12 GET /dashboard 200',
+    '2026-11-22 03:14:07 DEBUG vault FLAG_ENCODED=' + FLAG_B64,
+    '2026-11-22 03:14:08 INFO  10.0.0.99 GET /vault 403',
+    '2026-11-22 04:45:21 INFO  10.0.0.12 GET /api/projets 200',
+    '2026-11-22 05:02:33 ERROR 10.0.0.31 GET /facture.pdf 404',
+    '2026-11-22 06:20:15 INFO  10.0.0.12 GET /equipe 200',
+    '2026-11-22 07:58:44 INFO  10.0.0.12 POST /api/deploy 200',
+    '2026-11-22 08:30:00 INFO  cron sauvegarde terminée',
+    '2026-11-22 09:12:09 INFO  10.0.0.12 GET /index.html 200'
+  ];
+
+  var DONE = [
+    '[DÉCHIFFRÉ]',
+    'Joyeux anniversaire, Kelvin !',
+    'NAJK_SOFT te souhaite une excellente journée.'
+  ];
+
+  var FS = D({
+    'README.txt': F([
+      '=== NAJK_SOFT // SYSTÈME INTERNE ===',
+      '',
+      'Bienvenue, Kelvin.',
+      'Un fichier a été verrouillé à ton nom dans le dossier cadeau/.',
+      'Pour l\'ouvrir, il te faut le flag.',
+      'Le flag est caché quelque part dans ce système.',
+      '',
+      'Commandes utiles : ls, cat, cd, grep, base64',
+      'Tape "help" si tu bloques, "hint" si tu es vraiment perdu.'
+    ], 'readme'),
+    '.indice': F([
+      'INDICE #1',
+      'Les logs savent tout, mais ils parlent beaucoup.',
+      'Cherche le mot FLAG (en majuscules) dans logs/access.log avec grep.',
+      'La valeur trouvée est encodée. Il faudra la décoder.'
+    ], 'indice'),
+    'notes': D({
+      'todo.txt': F([
+        '- finir la démo client',
+        '- corriger le bug du module de paiement',
+        '- préparer le gâteau (ne rien dire)',
+        '- sauvegarder le serveur avant midi'
+      ]),
+      'vieux_mdp.txt': F([
+        'mot de passe admin : 123456',
+        '(ce n\'est pas le flag, mais change-le quand même)'
+      ])
+    }),
+    'logs': D({
+      'access.log': F(LOG, 'log')
+    }),
+    'cadeau': D({
+      'anniv.enc': F([
+        '[FICHIER CHIFFRÉ - AES-256]',
+        '9f 3a c1 07 5e d2 88 41 b6 0c e3 7d 12 aa 59 f4',
+        '71 0e bd 36 c8 4a 95 e0 2f 63 1b d7 84 a9 3c 5d',
+        '',
+        'Accès refusé : flag requis.',
+        'Utilise : unlock <flag>'
+      ], 'enc'),
+      'LISEZMOI.txt': F([
+        'Pour ouvrir anniv.enc, utilise la commande :',
+        '  unlock <flag>',
+        'Le flag a la forme NAJK{...}'
+      ])
+    })
+  });
+
+  var cwd = [];
+  var state = { readme: false, hidden: false, indice: false, grepped: false, decoded: false, done: false };
+  var hist = [], hpos = 0, busy = true, pendingReveal = false;
+
+  function resolve(p) {
+    p = (p || '').replace(/^\/home\/kelvin(?=\/|$)/, '~');
+    var first = p.charAt(0);
+    var parts = (p === '' || (first !== '/' && first !== '~')) ? cwd.slice() : [];
+    p.replace(/^~/, '').split('/').forEach(function (s) {
+      if (s === '' || s === '.') return;
+      if (s === '..') { parts.pop(); return; }
+      parts.push(s);
+    });
+    var node = FS;
+    for (var i = 0; i < parts.length; i++) {
+      if (node.type !== 'dir' || !Object.prototype.hasOwnProperty.call(node.children, parts[i])) return null;
+      node = node.children[parts[i]];
+    }
+    return { node: node, parts: parts };
+  }
+
+  /* ---------- Affichage ---------- */
+  function pathLabel() { return '~' + (cwd.length ? '/' + cwd.join('/') : ''); }
+  function promptNodes() {
+    var f = document.createDocumentFragment();
+    [['amber', USER + '@' + HOST], ['dim', ':'], ['info', pathLabel()], ['dim', '$']].forEach(function (x) {
+      var s = document.createElement('span');
+      s.className = x[0];
+      s.textContent = x[1];
+      f.appendChild(s);
+    });
+    return f;
+  }
+  function renderPrompt() { promptEl.textContent = ''; promptEl.appendChild(promptNodes()); }
+  function scrollDown() { term.scrollTop = term.scrollHeight; }
+
+  function renderText(el, text, hl) {
+    if (!hl) { el.textContent = text; return; }
+    var low = text.toLowerCase(), h = hl.toLowerCase(), i = 0, idx;
+    while ((idx = low.indexOf(h, i)) !== -1) {
+      el.appendChild(document.createTextNode(text.slice(i, idx)));
+      var m = document.createElement('mark');
+      m.textContent = text.slice(idx, idx + hl.length);
+      el.appendChild(m);
+      i = idx + hl.length;
+    }
+    el.appendChild(document.createTextNode(text.slice(i)));
+  }
+
+  function print(item) {
+    var d = document.createElement('div');
+    d.className = 'ln';
+    if (typeof item === 'string') {
+      d.textContent = item;
+    } else if (item.segs) {
+      item.segs.forEach(function (s) {
+        var sp = document.createElement('span');
+        if (s.c) sp.className = s.c;
+        sp.textContent = s.t;
+        d.appendChild(sp);
+      });
+    } else {
+      if (item.cls) d.className += ' ' + item.cls;
+      renderText(d, item.text, item.hl);
+    }
+    out.appendChild(d);
+    return d;
+  }
+
+  function plain(x) {
+    if (typeof x === 'string') return x;
+    if (x.segs) return x.segs.map(function (s) { return s.t; }).join('');
+    return x.text;
+  }
+
+  function echoLine(raw) {
+    var d = document.createElement('div');
+    d.className = 'ln';
+    d.appendChild(promptNodes());
+    d.appendChild(document.createTextNode(' ' + raw));
+    out.appendChild(d);
+  }
+
+  /* ---------- Commandes ---------- */
+  var C = {};
+
+  C.help = function () {
+    var rows = [
+      ['ls [-a] [dossier]', 'lister les fichiers (-a pour les fichiers cachés)'],
+      ['cd <dossier>', 'changer de dossier (cd .. pour remonter)'],
+      ['pwd', 'afficher le dossier courant'],
+      ['cat <fichier>', 'lire un fichier'],
+      ['grep <mot> <fichier>', 'chercher un mot dans un fichier'],
+      ['echo <texte>', 'afficher un texte'],
+      ['base64 -d <texte>', 'décoder du base64'],
+      ['unlock <flag>', 'ouvrir le fichier verrouillé'],
+      ['hint', 'un indice si tu bloques'],
+      ['clear', 'vider l\'écran']
+    ];
+    var res = [{ text: 'Commandes disponibles :', cls: 'dim' }];
+    rows.forEach(function (r) {
+      res.push({ segs: [{ t: r[0], c: 'amber' }, { t: '  ' + r[1], c: 'dim' }] });
+    });
+    res.push({ text: 'Astuces : Tab complète les noms, flèche haut rappelle une commande.', cls: 'dim' });
+    return res;
+  };
+
+  C.ls = function (a) {
+    var all = false, target = null;
+    a.forEach(function (x) {
+      if (/^-[a-zA-Z]+$/.test(x)) { if (/[aA]/.test(x)) all = true; }
+      else target = x;
+    });
+    var r = resolve(target || '');
+    if (!r) return [{ text: "ls: impossible d'accéder à '" + target + "': Aucun fichier ou dossier de ce type", cls: 'err' }];
+    if (r.node.type === 'file') return [target];
+    var names = Object.keys(r.node.children).sort();
+    var hid = names.filter(function (n) { return n.charAt(0) === '.'; });
+    if (!all) names = names.filter(function (n) { return n.charAt(0) !== '.'; });
+    else if (hid.length) state.hidden = true;
+    if (!names.length) return [];
+    var segs = [];
+    names.forEach(function (n, i) {
+      var d = r.node.children[n].type === 'dir';
+      segs.push({ t: n + (d ? '/' : ''), c: d ? 'info' : (n.charAt(0) === '.' ? 'amber' : '') });
+      if (i < names.length - 1) segs.push({ t: '   ' });
+    });
+    return [{ segs: segs }];
+  };
+
+  C.cd = function (a) {
+    var r = resolve(a[0] === undefined ? '~' : a[0]);
+    if (!r) return [{ text: 'cd: ' + a[0] + ': Aucun fichier ou dossier de ce type', cls: 'err' }];
+    if (r.node.type !== 'dir') return [{ text: 'cd: ' + a[0] + ": N'est pas un dossier", cls: 'err' }];
+    cwd = r.parts;
+    renderPrompt();
+    return [];
+  };
+
+  C.pwd = function () { return ['/home/kelvin' + (cwd.length ? '/' + cwd.join('/') : '')]; };
+  C.whoami = function () { return [USER]; };
+
+  C.cat = function (a, stdin) {
+    if (!a.length) return stdin ? stdin.slice() : [{ text: 'usage : cat <fichier>', cls: 'dim' }];
+    var res = [];
+    a.forEach(function (p) {
+      var r = resolve(p);
+      if (!r) { res.push({ text: 'cat: ' + p + ': Aucun fichier ou dossier de ce type', cls: 'err' }); return; }
+      if (r.node.type === 'dir') { res.push({ text: 'cat: ' + p + ': est un dossier', cls: 'err' }); return; }
+      var n = r.node;
+      if (n.id) state[n.id] = true;
+      if (n.id === 'indice') state.hidden = true;
+      (n.id === 'enc' && state.done ? DONE : n.content).forEach(function (l) { res.push(l); });
+    });
+    return res;
+  };
+
+  C.grep = function (a, stdin) {
+    var ci = false, args = [];
+    a.forEach(function (x) { if (x === '-i') ci = true; else args.push(x); });
+    if (!args.length) return [{ text: 'usage : grep <mot> <fichier>', cls: 'dim' }];
+    var pat = args[0], lines;
+    if (args.length > 1) {
+      var r = resolve(args[1]);
+      if (!r) return [{ text: 'grep: ' + args[1] + ': Aucun fichier ou dossier de ce type', cls: 'err' }];
+      if (r.node.type === 'dir') return [{ text: 'grep: ' + args[1] + ': est un dossier', cls: 'err' }];
+      lines = r.node.content;
+    } else if (stdin) {
+      lines = stdin;
+    } else {
+      return [{ text: 'grep: précise un fichier', cls: 'err' }];
+    }
+    var p = ci ? pat.toLowerCase() : pat, res = [];
+    lines.forEach(function (l) {
+      var h = ci ? l.toLowerCase() : l;
+      if (h.indexOf(p) !== -1) res.push({ text: l, hl: pat });
+    });
+    if (res.some(function (x) { return x.text.indexOf('FLAG_ENCODED') !== -1; })) state.grepped = true;
+    return res;
+  };
+
+  C.echo = function (a) { return [a.join(' ')]; };
+
+  C.base64 = function (a, stdin) {
+    var dec = false, rest = [];
+    a.forEach(function (x) {
+      if (x === '-d' || x === '-D' || x === '--decode') dec = true; else rest.push(x);
+    });
+    var src = rest.length ? rest.join('') : (stdin ? stdin.join('') : '');
+    if (!src) return [{ text: 'usage : base64 -d <texte>   ou   echo <texte> | base64 -d', cls: 'dim' }];
+    try {
+      if (dec) {
+        var raw = atob(src.trim()), txt;
+        try { txt = decodeURIComponent(escape(raw)); } catch (e) { txt = raw; }
+        var res = [txt];
+        if (txt.indexOf('NAJK{') === 0) {
+          state.decoded = true;
+          res.push({ text: '[+] Ça ressemble à un flag. Quel fichier pourrait-il ouvrir ?', cls: 'info' });
+        }
+        return res;
+      }
+      return [btoa(unescape(encodeURIComponent(src)))];
+    } catch (e) {
+      return [{ text: 'base64: entrée invalide', cls: 'err' }];
+    }
+  };
+
+  C.unlock = function (a) {
+    if (!a.length) return [{ text: 'usage : unlock <flag>', cls: 'dim' }];
+    var v = a.join(' ').trim();
+    if (v === FLAG_B64) return [{ text: '[x] Cette valeur est encore encodée. Décode-la d\'abord (base64 -d).', cls: 'err' }];
+    if (v.toLowerCase() === FLAG.toLowerCase()) {
+      state.done = true;
+      pendingReveal = true;
+      return [{ text: '[ ok ] Flag accepté.', cls: 'ok' }];
+    }
+    return [
+      { text: '[x] Accès refusé. Ce n\'est pas le bon flag.', cls: 'err' },
+      { text: 'Le flag a la forme NAJK{...}', cls: 'dim' }
+    ];
+  };
+
+  C.hint = function () {
+    var msg;
+    if (!state.readme && !state.hidden && !state.indice) msg = 'Commence par lire le fichier README.txt avec cat.';
+    else if (!state.indice && !state.hidden) msg = 'Tous les fichiers ne s\'affichent pas avec ls. Essaie ls -a.';
+    else if (!state.indice) msg = 'Un fichier caché commence par un point. Lis-le avec cat.';
+    else if (!state.grepped && !state.decoded) msg = 'Les logs sont longs. grep FLAG logs/access.log trouve la bonne ligne.';
+    else if (!state.decoded) msg = 'La valeur après FLAG_ENCODED= est du base64. Essaie : base64 -d <valeur>';
+    else msg = 'Tu as le flag. Utilise : unlock <flag>';
+    return [{ text: '[?] ' + msg, cls: 'info' }];
+  };
+
+  C.clear = function () { out.textContent = ''; return []; };
+  C.history = function () {
+    return hist.map(function (c, i) { return String(i + 1).padStart(3, ' ') + '  ' + c; });
+  };
+  C.sudo = function () { return [{ text: 'kelvin n\'est pas dans le fichier sudoers. Cet incident sera signalé à Kelvin.', cls: 'err' }]; };
+  C.rm = function () { return [{ text: 'rm: opération refusée. Ce système est protégé par NAJK_SOFT.', cls: 'err' }]; };
+  C.exit = function () { return [{ text: 'Impossible de quitter : le cadeau n\'est pas encore ouvert.', cls: 'dim' }]; };
+
+  function tokenize(s) {
+    var res = [], cur = '', q = null, has = false;
+    for (var i = 0; i < s.length; i++) {
+      var c = s.charAt(i);
+      if (q) { if (c === q) q = null; else cur += c; }
+      else if (c === '"' || c === "'") { q = c; has = true; }
+      else if (/\s/.test(c)) { if (cur !== '' || has) { res.push(cur); cur = ''; has = false; } }
+      else cur += c;
+    }
+    if (cur !== '' || has) res.push(cur);
+    return res;
+  }
+
+  function execute(line) {
+    var segs = line.split('|'), data = null;
+    for (var i = 0; i < segs.length; i++) {
+      var t = tokenize(segs[i].trim());
+      if (!t.length) continue;
+      var name = t[0];
+      if (!Object.prototype.hasOwnProperty.call(C, name)) {
+        return [{ text: 'bash: ' + name + ': commande introuvable. Tape "help".', cls: 'err' }];
+      }
+      data = C[name](t.slice(1), data ? data.map(plain) : null);
+    }
+    return data || [];
+  }
+
+  /* ---------- Saisie ---------- */
+  function submitLine() {
+    if (busy) return;
+    var raw = input.value;
+    input.value = '';
+    echoLine(raw);
+    var cmd = raw.trim();
+    if (cmd) {
+      hist.push(cmd);
+      hpos = hist.length;
+      execute(cmd).forEach(print);
+    }
+    if (pendingReveal) { pendingReveal = false; unlockSequence(); }
+    scrollDown();
+  }
+
+  form.addEventListener('submit', function (e) { e.preventDefault(); submitLine(); });
+
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (hpos > 0) { hpos--; input.value = hist[hpos]; }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (hpos < hist.length - 1) { hpos++; input.value = hist[hpos]; }
+      else { hpos = hist.length; input.value = ''; }
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      complete();
+    } else if ((e.key === 'l' || e.key === 'L') && e.ctrlKey) {
+      e.preventDefault();
+      out.textContent = '';
+    }
+  });
+
+  function complete() {
+    var v = input.value;
+    var m = v.match(/^(.*?)(\S*)$/);
+    var before = m[1], word = m[2], cands = [];
+    if (before.trim() === '') {
+      cands = Object.keys(C).filter(function (n) { return word && n.indexOf(word) === 0; });
+    } else {
+      var slash = word.lastIndexOf('/');
+      var dirPart = slash >= 0 ? word.slice(0, slash + 1) : '';
+      var namePart = word.slice(slash + 1);
+      var d = resolve(dirPart);
+      if (d && d.node.type === 'dir') {
+        cands = Object.keys(d.node.children).filter(function (n) {
+          return n.indexOf(namePart) === 0 && (namePart.charAt(0) === '.' || n.charAt(0) !== '.');
+        }).map(function (n) { return dirPart + n + (d.node.children[n].type === 'dir' ? '/' : ''); });
+      }
+    }
+    if (cands.length === 1) {
+      input.value = before + cands[0] + (cands[0].slice(-1) === '/' ? '' : ' ');
+    } else if (cands.length > 1) {
+      var pre = cands[0];
+      cands.forEach(function (c) { while (c.indexOf(pre) !== 0) pre = pre.slice(0, -1); });
+      input.value = before + pre;
+    }
+  }
+
+  term.addEventListener('click', function () {
+    var sel = window.getSelection && window.getSelection().toString();
+    if (!sel && !input.disabled) input.focus();
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('.chip'), function (b) {
+    b.addEventListener('click', function () {
+      if (busy) return;
+      input.value = b.getAttribute('data-cmd');
+      submitLine();
+      input.focus();
+    });
+  });
+
+  /* ---------- Séquence de déverrouillage ---------- */
+  function unlockSequence() {
+    busy = true;
+    input.disabled = true;
+    statusEl.textContent = 'déchiffrement';
+    var seq = [
+      [{ t: '[ .. ] ', c: 'dim' }, { t: 'vérification du flag' }],
+      [{ t: '[ ok ] ', c: 'ok' }, { t: 'flag valide' }],
+      [{ t: '[ .. ] ', c: 'dim' }, { t: 'déchiffrement de anniv.enc' }]
+    ];
+    var i = 0;
+    (function next() {
+      if (i < seq.length) {
+        print({ segs: seq[i] });
+        i++;
+        scrollDown();
+        setTimeout(next, REDUCED ? 0 : 450);
+        return;
+      }
+      var bar = print({ text: '', cls: 'amber' });
+      var p = 0;
+      var timer = setInterval(function () {
+        p = Math.min(100, p + 10);
+        var n = p / 10;
+        bar.textContent = '[' + '#'.repeat(n) + '.'.repeat(10 - n) + '] ' + p + '%';
+        scrollDown();
+        if (p >= 100) {
+          clearInterval(timer);
+          setTimeout(showReveal, REDUCED ? 0 : 500);
+        }
+      }, REDUCED ? 0 : 110);
+    })();
+  }
+
+  function showReveal() {
+    statusEl.textContent = 'déverrouillé';
+    reveal.hidden = false;
+    $('back').focus();
+    launchConfetti();
+  }
+
+  $('back').addEventListener('click', function () {
+    reveal.hidden = true;
+    busy = false;
+    input.disabled = false;
+    print({ text: '[ ok ] Message déverrouillé. Relis-le avec : cat cadeau/anniv.enc', cls: 'ok' });
+    scrollDown();
+    input.focus();
+  });
+  $('again').addEventListener('click', launchConfetti);
+
+  /* ---------- Confettis ---------- */
+  var cv = $('confetti'), cx = cv.getContext('2d'), raf = 0;
+  function sizeCanvas() {
+    var r = window.devicePixelRatio || 1;
+    cv.width = Math.round(window.innerWidth * r);
+    cv.height = Math.round(window.innerHeight * r);
+    cx.setTransform(r, 0, 0, r, 0, 0);
+  }
+  function launchConfetti() {
+    if (REDUCED) return;
+    sizeCanvas();
+    cancelAnimationFrame(raf);
+    var cols = ['#ffb000', '#86d9a4', '#74c7e3', '#ff7466', '#eadfc2'];
+    var W = window.innerWidth, H = window.innerHeight, parts = [];
+    for (var i = 0; i < 160; i++) {
+      parts.push({
+        x: Math.random() * W, y: -20 - Math.random() * H * 0.6,
+        w: 6 + Math.random() * 6, h: 3 + Math.random() * 5,
+        vx: (Math.random() - 0.5) * 2, vy: 2 + Math.random() * 3.5,
+        rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.25,
+        c: cols[Math.floor(Math.random() * cols.length)]
+      });
+    }
+    var t0 = performance.now();
+    (function frame(t) {
+      cx.clearRect(0, 0, W, H);
+      var alive = false;
+      parts.forEach(function (p) {
+        p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.vx += Math.sin(p.y / 40) * 0.02;
+        if (p.y < H + 20) alive = true;
+        cx.save();
+        cx.translate(p.x, p.y);
+        cx.rotate(p.rot);
+        cx.fillStyle = p.c;
+        cx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        cx.restore();
+      });
+      if (alive && t - t0 < 9000) raf = requestAnimationFrame(frame);
+      else cx.clearRect(0, 0, W, H);
+    })(t0);
+  }
+  window.addEventListener('resize', function () { if (!reveal.hidden) sizeCanvas(); });
+
+  /* ---------- Démarrage ---------- */
+  var BOOT = [
+    { segs: [{ t: 'NAJK_SOFT OS 1.0', c: 'amber' }, { t: '  (noyau 6.18)', c: 'dim' }] },
+    { segs: [{ t: '[ ok ] ', c: 'ok' }, { t: 'chargement des modules internes' }] },
+    { segs: [{ t: '[ ok ] ', c: 'ok' }, { t: 'connexion sécurisée établie' }] },
+    { segs: [{ t: '[ ok ] ', c: 'ok' }, { t: 'session ouverte pour : kelvin' }] },
+    { segs: [{ t: '[ !! ] ', c: 'info' }, { t: '1 fichier verrouillé à ton nom dans cadeau/' }] },
+    '',
+    { text: 'Tape "help" pour la liste des commandes, ou commence par : cat README.txt', cls: 'dim' }
+  ];
+
+  renderPrompt();
+  var bi = 0;
+  (function boot() {
+    if (bi < BOOT.length) {
+      print(BOOT[bi]);
+      bi++;
+      if (REDUCED) boot(); else setTimeout(boot, 170);
+      return;
+    }
+    busy = false;
+    input.disabled = false;
+    input.focus();
+    scrollDown();
+  })();
+})();
+</script>
+</body>
+</html>
